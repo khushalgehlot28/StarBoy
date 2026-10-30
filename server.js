@@ -3,13 +3,16 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(express.static('public'));
+
+// Serve static files correctly using absolute paths for Vercel
+app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
@@ -45,7 +48,7 @@ app.post('/api/admin/login', (req, res) => {
   res.status(401).json({ error: 'Invalid admin credentials' });
 });
 
-// Get All Products (Public) - with connection state check
+// Get All Products (Public)
 app.get('/api/products', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
@@ -78,6 +81,11 @@ app.delete('/api/products/:id', async (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// Explicit root route handler to serve index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Start locally if run directly, or export for Vercel serverless deployment
