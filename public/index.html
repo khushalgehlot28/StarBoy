@@ -3,20 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Starboy Crafted | Shop online for Anime Posters & More</title>
+  <title>Starboy Crafted | Anime Posters & Wall Art</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
   <header class="store-header">
     <div class="store-header-main">
-      <a href="#" class="brand-logo">Starboy Crafted <span>Bay</span></a>
-      <form class="site-search" id="productSearchForm" role="search">
+      <a href="index.html" class="brand-logo">Starboy Crafted <span>Bay</span></a>
+      <form class="site-search" id="productSearchForm" action="products.html" role="search">
         <label class="sr-only" for="productSearch">Search products</label>
-        <input id="productSearch" type="search" placeholder="Search posters and wall art">
+        <input id="productSearch" name="q" type="search" placeholder="Search posters and wall art">
         <button type="submit">Search</button>
       </form>
       <div class="nav-actions">
@@ -26,82 +25,55 @@
     </div>
     <nav class="store-nav" aria-label="Main navigation">
       <a href="#home">Home</a>
-      <a href="#about">Bundle offers</a>
-      <a href="#services">Shop all</a>
+      <a href="products.html#about">Bundle offers</a>
+      <a href="products.html#services">Shop all</a>
       <a href="#contact">Contact</a>
     </nav>
   </header>
 
-  <div id="home" class="hero-banner">
-    <div class="hero-section">
-      <div class="hero-content">
-        <p class="eyebrow">Starboy Crafted store</p>
-        <h1>Find your next favorite poster.</h1>
-        <p>Explore anime-inspired posters and wall art, compare prices, and add your picks to the cart.</p>
-        <div class="hero-actions">
-          <a class="hero-btn" href="#services">Shop products</a>
-          <a class="hero-btn hero-btn-secondary" href="#about">See bundle offers</a>
+  <main>
+    <div id="home" class="hero-banner">
+      <section class="hero-section" aria-labelledby="hero-heading">
+        <div class="hero-content">
+          <p class="eyebrow">Starboy Crafted store</p>
+          <h1 id="hero-heading">Find your next favorite poster.</h1>
+          <p>Explore anime-inspired posters and wall art to make your space your own.</p>
+          <div class="hero-actions">
+            <a class="hero-btn" href="products.html#services">Shop all posters</a>
+            <a class="hero-btn hero-btn-secondary" href="products.html#about">See bundle offers</a>
+          </div>
         </div>
-      </div>
-      <img class="hero-image" src="assets/images/project1.jpg" alt="Anime-inspired poster display">
-    </div>
-  </div>
-
-  <section id="about" class="bundle-section" aria-labelledby="bundle-heading">
-    <div class="bundle-heading">
-      <div>
-        <p class="eyebrow">More art for your wall</p>
-        <h2 id="bundle-heading">Bundle offers</h2>
-      </div>
-      <a href="#services">Shop all posters <span aria-hidden="true">→</span></a>
-    </div>
-    <div class="promo-grid">
-      <article class="promo-card">
-        <span class="tag">Bundle deal</span>
-        <h4>Buy 3 from selected products, Get 1 Free</h4>
-        <p>Pick your favorite designs and create a gallery wall.</p>
-        <a href="#services">Browse posters</a>
-      </article>
-      <article class="promo-card">
-        <span class="tag">Bundle deal</span>
-        <h4>Buy 2 from selected products, Get 2 Free</h4>
-        <p>Find a new favorite for every corner of your room.</p>
-        <a href="#services">Browse posters</a>
-      </article>
-    </div>
-  </section>
-
-  <main id="services" class="catalog-section">
-    <div class="catalog-heading">
-      <div>
-        <p class="eyebrow">Made for your walls</p>
-        <h2>Shop all posters</h2>
-      </div>
-      <label class="sort-control" for="sortProducts">Sort by
-        <select id="sortProducts">
-          <option value="recommended">Recommended</option>
-          <option value="price-low">Price: Low to High</option>
-          <option value="price-high">Price: High to Low</option>
-          <option value="name">Name</option>
-        </select>
-      </label>
-    </div>
-    <div class="filter-bar">
-      <label class="category-control" for="categoryFilter">Category
-        <select id="categoryFilter">
-          <option value="">All categories</option>
-        </select>
-      </label>
-      <label class="stock-control"><input id="inStockFilter" type="checkbox" checked> In stock only</label>
-      <button class="clear-filters" id="clearFilters" type="button">Clear filters</button>
+        <img class="hero-image" src="assets/images/project1.jpg" alt="Anime-inspired poster display">
+      </section>
     </div>
 
-    <div class="product-grid" id="productGrid">
-      <p class="catalog-message">Loading products…</p>
-    </div>
+    <section class="catalog-section home-products" aria-labelledby="suggested-heading">
+      <div class="catalog-heading">
+        <div>
+          <p class="eyebrow">Picked just for you</p>
+          <h2 id="suggested-heading">You might also like</h2>
+        </div>
+        <a class="section-link" href="products.html#services">Explore all posters <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="product-grid" id="suggestedProductGrid" aria-live="polite">
+        <p class="catalog-message">Finding picks for you…</p>
+      </div>
+    </section>
+
+    <section class="catalog-section home-products" aria-labelledby="bestsellers-heading">
+      <div class="catalog-heading">
+        <div>
+          <p class="eyebrow">Customer favorites</p>
+          <h2 id="bestsellers-heading">Best sellers</h2>
+        </div>
+        <a class="section-link" href="products.html#services">Shop all posters <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="product-grid" id="bestsellerProductGrid" aria-live="polite">
+        <p class="catalog-message">Loading best sellers…</p>
+      </div>
+    </section>
   </main>
 
-  <!-- Sliding Cart Drawer -->
   <div id="cartDrawer" style="position: fixed; top: 0; right: -400px; width: 380px; height: 100%; background: #fff; box-shadow: -5px 0 25px rgba(0,0,0,0.1); z-index: 1000; transition: right 0.3s ease; display: flex; flex-direction: column;">
     <div style="padding: 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
       <h3 style="margin: 0; font-family: var(--font-display);">Your Shopping Cart</h3>
@@ -120,21 +92,6 @@
   </div>
   <div id="cartOverlay" onclick="toggleCartDrawer()" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:999; display:none;"></div>
 
-  <!-- Instagram Feed Section -->
-  <section class="insta-section">
-    <div class="insta-header">
-      <h3>Follow us on Instagram</h3>
-      <div class="insta-followers">📸 198 followers</div>
-    </div>
-    <div class="insta-grid">
-      <div class="insta-item"><img src="assets/images/project1.jpg" alt="Wall Setup 1" onerror="this.src='https://via.placeholder.com/300?text=Wall+1'"></div>
-      <div class="insta-item"><img src="assets/images/project1.jpg" alt="Wall Setup 2" onerror="this.src='https://via.placeholder.com/300?text=Wall+2'"></div>
-      <div class="insta-item"><img src="assets/images/project1.jpg" alt="Special Offer" onerror="this.src='https://via.placeholder.com/300?text=Offer'"></div>
-      <div class="insta-item"><img src="assets/images/project1.jpg" alt="Polaroid Wall" onerror="this.src='https://via.placeholder.com/300?text=Polaroid'"></div>
-    </div>
-  </section>
-
-  <!-- Footer / Contact Section -->
   <footer id="contact">
     <div class="footer-container">
       <div class="footer-col contact-info">
@@ -155,14 +112,14 @@
       <div class="footer-col">
         <h4>Shop</h4>
         <ul>
-          <li><a href="#">Split Poster</a></li>
-          <li><a href="#">Poster</a></li>
+          <li><a href="products.html#services">Split Poster</a></li>
+          <li><a href="products.html#services">Poster</a></li>
         </ul>
       </div>
       <div class="footer-col">
         <h4>Explore</h4>
         <ul>
-          <li><a href="#">Anime</a></li>
+          <li><a href="products.html#services">Anime</a></li>
         </ul>
         <h4 style="margin-top: 1.5rem;">We accept</h4>
         <p style="font-size: 0.8rem;">Net Banking / Wallets / Cash on Delivery</p>
@@ -170,10 +127,7 @@
     </div>
   </footer>
 
-  <!-- Floating WhatsApp Action Button -->
-  <a href="https://wa.me/919521226338" class="whatsapp-float" target="_blank" aria-label="Chat on WhatsApp">💬</a>
-
-  <!-- Frontend API & Cart Script -->
+  <a href="https://wa.me/919521226338" class="whatsapp-float" target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp">💬</a>
   <script src="app.js"></script>
 </body>
 </html>

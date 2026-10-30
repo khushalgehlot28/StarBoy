@@ -5,22 +5,35 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchProducts();
   updateCartUI();
 
-  document.getElementById('productSearchForm').addEventListener('submit', event => {
-    event.preventDefault();
-    renderProducts();
+  const productGrid = document.getElementById('productGrid');
+  const searchInput = document.getElementById('productSearch');
+  const searchForm = document.getElementById('productSearchForm');
+  const searchTerm = new URLSearchParams(window.location.search).get('q');
+
+  if (searchInput && searchTerm) searchInput.value = searchTerm;
+  if (searchForm && productGrid) {
+    searchForm.addEventListener('submit', event => {
+      event.preventDefault();
+      renderProducts();
+    });
+  }
+  if (searchInput && productGrid) searchInput.addEventListener('input', renderProducts);
+
+  ['categoryFilter', 'sortProducts', 'inStockFilter'].forEach(id => {
+    const control = document.getElementById(id);
+    if (control) control.addEventListener('change', renderProducts);
   });
-  document.getElementById('productSearch').addEventListener('input', renderProducts);
-  document.getElementById('categoryFilter').addEventListener('change', renderProducts);
-  document.getElementById('sortProducts').addEventListener('change', renderProducts);
-  document.getElementById('inStockFilter').addEventListener('change', renderProducts);
-  document.getElementById('clearFilters').addEventListener('click', () => {
-    document.getElementById('productSearch').value = '';
+
+  const clearFilters = document.getElementById('clearFilters');
+  if (clearFilters) clearFilters.addEventListener('click', () => {
+    searchInput.value = '';
     document.getElementById('categoryFilter').value = '';
     document.getElementById('sortProducts').value = 'recommended';
     document.getElementById('inStockFilter').checked = false;
     renderProducts();
   });
-  document.getElementById('productGrid').addEventListener('click', event => {
+
+  document.addEventListener('click', event => {
     const button = event.target.closest('[data-product-id]');
     if (button) addToCart(button.dataset.productId);
   });
@@ -35,12 +48,19 @@ async function fetchProducts() {
     allProducts = Array.isArray(data) ? data : [];
     populateCategoryFilter();
     renderProducts();
+    renderHomeSections();
   } catch (err) {
     console.error('Error loading storefront products:', err);
     const grid = document.getElementById('productGrid');
     if (grid) {
       grid.innerHTML = '<p style="color:var(--accent); grid-column: 1/-1; text-align:center;">Failed to connect to backend server. Make sure npm start is running.</p>';
     }
+    ['suggestedProductGrid', 'bestsellerProductGrid'].forEach(id => {
+      const homeGrid = document.getElementById(id);
+      if (homeGrid) {
+        homeGrid.innerHTML = '<p class="catalog-message">Products could not be loaded. Please try again later.</p>';
+      }
+    });
   }
 }
 
@@ -56,6 +76,7 @@ function escapeHtml(value) {
 
 function populateCategoryFilter() {
   const categoryFilter = document.getElementById('categoryFilter');
+  if (!categoryFilter) return;
   const categories = [...new Set(allProducts.map(product => product.category).filter(Boolean))]
     .sort((first, second) => first.localeCompare(second));
 
@@ -98,7 +119,38 @@ function renderProducts() {
     return;
   }
 
-  grid.innerHTML = filteredProducts.map(product => `
+  grid.innerHTML = filteredProducts.map(product => renderProductCard(product)).join('');
+}
+
+function renderHomeSections() {
+  const suggestedGrid = document.getElementById('suggestedProductGrid');
+  const bestsellerGrid = document.getElementById('bestsellerProductGrid');
+  if (!suggestedGrid && !bestsellerGrid) return;
+
+  const availableProducts = allProducts.filter(product => product.inStock !== false);
+  const shuffledProducts = [...availableProducts];
+  for (let index = shuffledProducts.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffledProducts[index], shuffledProducts[randomIndex]] = [shuffledProducts[randomIndex], shuffledProducts[index]];
+  }
+
+  if (suggestedGrid) {
+    const suggestions = shuffledProducts.slice(0, 4);
+    suggestedGrid.innerHTML = suggestions.length
+      ? suggestions.map(product => renderProductCard(product)).join('')
+      : '<p class="catalog-message">No products available yet. Check back soon.</p>';
+  }
+
+  if (bestsellerGrid) {
+    const bestsellers = availableProducts.filter(product => /best[\s-]?seller/i.test(product.badge || ''));
+    bestsellerGrid.innerHTML = bestsellers.length
+      ? bestsellers.slice(0, 4).map(product => renderProductCard(product)).join('')
+      : '<p class="catalog-message">Our best sellers are coming soon. Check back for customer favorites.</p>';
+  }
+}
+
+function renderProductCard(product) {
+  return `
     <article class="product-card">
       <div class="product-img">
         ${product.badge ? `<span class="badge-bestseller">${escapeHtml(product.badge)}</span>` : ''}
@@ -115,7 +167,7 @@ function renderProducts() {
         <button class="btn-add-cart" type="button" data-product-id="${escapeHtml(product._id)}">Add to Cart</button>
       </div>
     </article>
-  `).join('');
+  `;
 }
 
 // Toggle Sliding Cart Drawer

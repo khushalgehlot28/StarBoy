@@ -820,6 +820,23 @@ body {
   margin: 0;
 }
 
+.section-link {
+  color: #166534;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.section-link:hover {
+  color: var(--brand-green);
+}
+
+.home-products {
+  margin-top: 2rem;
+  margin-bottom: 3rem;
+}
+
 .bundle-heading > a {
   color: #166534;
   font-size: 0.9rem;
@@ -1093,6 +1110,10 @@ footer {
   .catalog-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .section-link {
+    white-space: normal;
   }
 
   .promo-grid {
