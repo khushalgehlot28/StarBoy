@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Starboy Crafted | Admin CMS Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --surface: #ffffff;
+      --text: #111827;
+      --text-muted: #4b5563;
+      --brand-green: #10b981;
+      --accent: #e50914;
+      --border: #e5e7eb;
+      --font-display: 'Plus Jakarta Sans', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); line-height: 1.5; }
+    
+    /* Header */
+    header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 5%; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .brand { font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; text-decoration: none; color: var(--text); }
+    
+    .container { max-width: 1000px; margin: 2rem auto; padding: 0 5%; }
+    
+    /* Login Box */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+    .card h2 { font-family: var(--font-display); margin-top: 0; }
+    
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+    .form-group input { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; }
+    
+    .btn { background: var(--text); color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #000; }
+    .btn-danger { background: var(--accent); }
+    
+    .hidden { display: none !important; }
+    
+    /* Product Table */
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; background: var(--surface); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+    th, td { padding: 0.85rem 1rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    th { background: #f3f4f6; font-weight: 700; font-family: var(--font-display); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="index.html" class="brand">Starboy Crafted // Admin CMS</a>
+    <div id="authStatus" class="hidden">
+      <button class="btn btn-danger" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <!-- Login Section -->
+    <div id="loginSection" class="card">
+      <h2>Admin Login</h2>
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="username" required placeholder="admin">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="password" required placeholder="starboy2026">
+        </div>
+        <button type="submit" class="btn">Login to CMS</button>
+      </form>
+    </div>
+
+    <!-- Dashboard CMS Section -->
+    <div id="dashboardSection" class="hidden">
+      <div class="card">
+        <h2>Add New Product</h2>
+        <form id="productForm" onsubmit="handleAddProduct(event)">
+          <div class="form-group">
+            <label>Product Title</label>
+            <input type="text" id="pTitle" required placeholder="e.g. Bold Red Luffy | Anime">
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <input type="text" id="pCategory" required placeholder="Split Poster / Anime">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Current Price (₹)</label>
+              <input type="number" id="pPrice" required placeholder="399">
+            </div>
+            <div class="form-group">
+              <label>Original Price (₹)</label>
+              <input type="number" id="pOriginalPrice" placeholder="524">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Discount Tag</label>
+              <input type="text" id="pDiscount" placeholder="23% Off">
+            </div>
+            <div class="form-group">
+              <label>Badge (Optional)</label>
+              <input type="text" id="pBadge" placeholder="Bestseller">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Image URL / Path</label>
+            <input type="text" id="pImage" required placeholder="assets/images/project1.jpg">
+          </div>
+          <button type="submit" class="btn">Publish Product</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Existing Products Catalog</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="productTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:5000/api';
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch(`${API_URL}/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          localStorage.setItem('starboy_token', data.token);
+          checkAuth();
+        } else {
+          alert(data.error || 'Login failed');
+        }
+      } catch (err) {
+        alert('Server error during login');
+      }
+    }
+
+    function checkAuth() {
+      const token = localStorage.getItem('starboy_token');
+      if (token) {
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('dashboardSection').classList.remove('hidden');
+        document.getElementById('authStatus').classList.remove('hidden');
+        loadProductsAdmin();
+      } else {
+        document.getElementById('loginSection').classList.remove('hidden');
+        document.getElementById('dashboardSection').classList.add('hidden');
+        document.getElementById('authStatus').classList.add('hidden');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('starboy_token');
+      checkAuth();
+    }
+
+    async function loadProductsAdmin() {
+      try {
+        const res = await fetch(`${API_URL}/products`);
+        const products = await res.json();
+        const tbody = document.getElementById('productTableBody');
+        tbody.innerHTML = '';
+        products.forEach(p => {
+          tbody.innerHTML += `
+            <tr>
+              <td><strong>${p.title}</strong></td>
+              <td>${p.category}</td>
+              <td>₹${p.price}</td>
+              <td><button class="btn btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="deleteProduct('${p._id}')">Delete</button></td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        console.error('Failed to load products');
+      }
+    }
+
+    async function handleAddProduct(e) {
+      e.preventDefault();
+      const token = localStorage.getItem('starboy_token');
+      const newProduct = {
+        title: document.getElementById('pTitle').value,
+        category: document.getElementById('pCategory').value,
+        price: Number(document.getElementById('pPrice').value),
+        originalPrice: Number(document.getElementById('pOriginalPrice').value) || 0,
+        discount: document.getElementById('pDiscount').value,
+        badge: document.getElementById('pBadge').value,
+        image: document.getElementById('pImage').value
+      };
+
+      try {
+        const res = await fetch(`${API_URL}/products`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(newProduct)
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('productForm').reset();
+          loadProductsAdmin();
+          alert('Product added successfully!');
+        } else {
+          alert('Failed to add product');
+        }
+      } catch (err) {
+        alert('Error connecting to server');
+      }
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('Are you sure you want to delete this product?')) return;
+      const token = localStorage.getItem('starboy_token');
+      try {
+        const res = await fetch(`${API_URL}/products/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadProductsAdmin();
+        } else {
+          alert('Failed to delete');
+        }
+      } catch (err) {
+        alert('Error connecting to server');
+      }
+    }
+
+    // Initialize check on load
+    checkAuth();
+  </script>
+</body>
+</html>
