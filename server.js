@@ -80,6 +80,11 @@ app.delete('/api/products/:id', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running live on http://localhost:${PORT}`);
-});
+// Start locally if run directly, or export for Vercel serverless deployment
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running live on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
