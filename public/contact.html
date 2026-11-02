@@ -12,7 +12,13 @@
 <body>
   <header class="store-header">
     <div class="store-header-main">
-      <a href="index.html" class="brand-logo">Starboy Crafted <span>Bay</span></a>
+      <a href="index.html" class="brand-logo"><img class="brand-mark" src="assets/images/starboy-mark.png" alt="">Starboy Crafted</a>
+      <nav class="store-nav" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="offers.html">Bundle offers</a>
+        <a href="products.html">Shop all</a>
+        <a href="contact.html" aria-current="page">Contact</a>
+      </nav>
       <form class="site-search" action="products.html" role="search">
         <label class="sr-only" for="productSearch">Search products</label>
         <input id="productSearch" name="q" type="search" placeholder="Search posters and wall art">
@@ -23,12 +29,6 @@
         <a href="#" onclick="toggleCartDrawer(event)">🛒 Cart <span id="cartCount">0</span></a>
       </div>
     </div>
-    <nav class="store-nav" aria-label="Main navigation">
-      <a href="index.html">Home</a>
-      <a href="offers.html">Bundle offers</a>
-      <a href="products.html">Shop all</a>
-      <a href="contact.html" aria-current="page">Contact</a>
-    </nav>
   </header>
 
   <main class="contact-page page-content" aria-labelledby="contact-heading">
@@ -37,21 +37,33 @@
       <h1 id="contact-heading">Contact us</h1>
       <p>Questions about an order, a poster, or our bundle offers? Get in touch.</p>
     </div>
-    <div class="contact-cards">
-      <section class="contact-card">
-        <h2>Call us</h2>
-        <p>Talk to our team about products and orders.</p>
-        <a href="tel:+919521226338">+91 95212 26338</a>
-      </section>
-      <section class="contact-card">
-        <h2>WhatsApp</h2>
-        <p>Send us a message and we’ll be happy to help.</p>
-        <a href="https://wa.me/919521226338" target="_blank" rel="noopener noreferrer">Chat with us</a>
-      </section>
-      <section class="contact-card">
-        <h2>Visit us</h2>
-        <p>Star Bay</p>
+    <div class="contact-layout">
+      <section class="contact-card contact-details">
+        <h2>Get in touch</h2>
         <p>Jodhpur, Rajasthan, 342003</p>
+        <p>Call: <a href="tel:+919521226338">+91 95212 26338</a></p>
+        <p>WhatsApp: <a href="https://wa.me/919521226338" target="_blank" rel="noopener noreferrer">Message us</a></p>
+        <p>Questions about an order or a poster? We’re happy to help.</p>
+      </section>
+      <section class="contact-card contact-message">
+        <h2>Send a message</h2>
+        <form id="contactMessageForm" class="contact-form">
+          <div class="form-group">
+            <label for="contactName">Name</label>
+            <input id="contactName" name="name" autocomplete="name" required>
+          </div>
+          <div class="form-group">
+            <label for="contactDetails">Email or phone</label>
+            <input id="contactDetails" name="contact" required>
+          </div>
+          <div class="form-group">
+            <label for="contactMessage">Message</label>
+            <textarea id="contactMessage" name="message" rows="4" required></textarea>
+          </div>
+          <button class="hero-btn" type="submit">Send message</button>
+          <p class="contact-form-note">Your message will open in WhatsApp for you to review and send.</p>
+          <p id="contactFormStatus" class="contact-form-status" role="status" aria-live="polite"></p>
+        </form>
       </section>
     </div>
   </main>

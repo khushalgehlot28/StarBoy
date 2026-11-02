@@ -13,7 +13,13 @@
 
   <header class="store-header">
     <div class="store-header-main">
-      <a href="index.html" class="brand-logo">Starboy Crafted <span>Bay</span></a>
+      <a href="index.html" class="brand-logo"><img class="brand-mark" src="assets/images/starboy-mark.png" alt="">Starboy Crafted</a>
+      <nav class="store-nav" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="offers.html">Bundle offers</a>
+        <a href="products.html" aria-current="page">Shop all</a>
+        <a href="contact.html">Contact</a>
+      </nav>
       <form class="site-search" id="productSearchForm" action="products.html" role="search">
         <label class="sr-only" for="productSearch">Search products</label>
         <input id="productSearch" name="q" type="search" placeholder="Search posters and wall art">
@@ -24,12 +30,6 @@
         <a href="#" onclick="toggleCartDrawer(event)">🛒 Cart <span id="cartCount">0</span></a>
       </div>
     </div>
-    <nav class="store-nav" aria-label="Main navigation">
-      <a href="index.html">Home</a>
-      <a href="offers.html">Bundle offers</a>
-      <a href="products.html" aria-current="page">Shop all</a>
-      <a href="contact.html">Contact</a>
-    </nav>
   </header>
 
   <main class="catalog-section page-content">

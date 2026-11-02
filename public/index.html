@@ -12,7 +12,13 @@
 <body>
   <header class="store-header">
     <div class="store-header-main">
-      <a href="index.html" class="brand-logo">Starboy Crafted <span>Bay</span></a>
+      <a href="index.html" class="brand-logo"><img class="brand-mark" src="assets/images/starboy-mark.png" alt="">Starboy Crafted</a>
+      <nav class="store-nav" aria-label="Main navigation">
+        <a href="index.html" aria-current="page">Home</a>
+        <a href="offers.html">Bundle offers</a>
+        <a href="products.html">Shop all</a>
+        <a href="contact.html">Contact</a>
+      </nav>
       <form class="site-search" id="productSearchForm" action="products.html" role="search">
         <label class="sr-only" for="productSearch">Search products</label>
         <input id="productSearch" name="q" type="search" placeholder="Search posters and wall art">
@@ -23,27 +29,21 @@
         <a href="#" onclick="toggleCartDrawer(event)">🛒 Cart <span id="cartCount">0</span></a>
       </div>
     </div>
-    <nav class="store-nav" aria-label="Main navigation">
-      <a href="index.html" aria-current="page">Home</a>
-      <a href="offers.html">Bundle offers</a>
-      <a href="products.html">Shop all</a>
-      <a href="contact.html">Contact</a>
-    </nav>
   </header>
 
   <main>
     <div id="home" class="hero-banner">
       <section class="hero-section" aria-labelledby="hero-heading">
         <div class="hero-content">
-          <p class="eyebrow">Starboy Crafted store</p>
-          <h1 id="hero-heading">Find your next favorite poster.</h1>
-          <p>Explore anime-inspired posters and wall art to make your space your own.</p>
+          <p class="eyebrow">Art for the stories you love</p>
+          <h1 id="hero-heading">Make your wall feel like your world.</h1>
+          <p>Discover anime-inspired posters and build a space that feels unmistakably yours.</p>
           <div class="hero-actions">
             <a class="hero-btn" href="products.html">Shop all posters</a>
             <a class="hero-btn hero-btn-secondary" href="offers.html">See bundle offers</a>
           </div>
         </div>
-        <img class="hero-image" src="assets/images/project1.jpg" alt="Anime-inspired poster display">
+        <img class="hero-image" src="assets/images/1.jpg" alt="Anime-inspired poster displayed in a room">
       </section>
     </div>
 

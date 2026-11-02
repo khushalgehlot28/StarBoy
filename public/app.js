@@ -5,6 +5,22 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchProducts();
   updateCartUI();
 
+  const contactForm = document.getElementById('contactMessageForm');
+  if (contactForm) {
+    contactForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const formData = new FormData(contactForm);
+      const message = [
+        `Name: ${formData.get('name')}`,
+        `Contact: ${formData.get('contact')}`,
+        `Message: ${formData.get('message')}`
+      ].join('\n');
+      const whatsappUrl = `https://wa.me/919521226338?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      document.getElementById('contactFormStatus').textContent = 'WhatsApp opened with your message. Send it there to reach us.';
+    });
+  }
+
   const productGrid = document.getElementById('productGrid');
   const searchInput = document.getElementById('productSearch');
   const searchForm = document.getElementById('productSearchForm');
