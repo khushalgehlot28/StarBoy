@@ -3,6 +3,10 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const { rateLimit } = require('express-rate-limit');
+const Razorpay = require('razorpay');
 const path = require('path');
 const crypto = require('crypto');
 const Product = require('./models/Product');
@@ -12,8 +16,27 @@ const Review = require('./models/Review');
 dotenv.config();
 
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+if (process.env.VERCEL) app.set('trust proxy', 1);
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
+}));
+const defaultJsonParser = express.json({ limit: '10kb' });
+const reviewJsonParser = express.json({ limit: '350kb' });
+app.use((req, res, next) => {
+  const parser = req.method === 'POST' && req.path === '/api/reviews'
+    ? reviewJsonParser
+    : defaultJsonParser;
+  parser(req, res, next);
+});
+app.use(mongoSanitize());
 app.use(cors());
+app.use('/api/', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false
+}));
 
 // Serve static files correctly using absolute paths for Vercel
 app.use(express.static(path.join(__dirname, 'public')));
@@ -23,25 +46,69 @@ const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_USER = process.env.ADMIN_USER;
 const ADMIN_PASS = process.env.ADMIN_PASS;
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const razorpay = RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET
+  ? new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET })
+  : null;
+
+const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false
+});
+const checkoutRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false
+});
+
+function validateStartupConfig() {
+  const missing = [];
+  if (!MONGO_URI) missing.push('MONGO_URI');
+  if (!JWT_SECRET || Buffer.byteLength(JWT_SECRET, 'utf8') < 32) missing.push('JWT_SECRET (at least 32 bytes)');
+  if (!ADMIN_USER) missing.push('ADMIN_USER');
+  if (!ADMIN_PASS) missing.push('ADMIN_PASS');
+  if (!RAZORPAY_KEY_ID) missing.push('RAZORPAY_KEY_ID');
+  if (!RAZORPAY_KEY_SECRET) missing.push('RAZORPAY_KEY_SECRET');
+  if (missing.length) {
+    throw new Error(`Missing or invalid required environment variables: ${missing.join(', ')}`);
+  }
+}
 
 function isAdminAuthConfigured() {
   return Boolean(ADMIN_USER && ADMIN_PASS && JWT_SECRET && Buffer.byteLength(JWT_SECRET, 'utf8') >= 32);
 }
 
-// Robust Serverless MongoDB Connection Handler with IPv4 and Timeout fixes
+let mongoConnectionPromise = null;
+
 async function connectDB() {
-  if (mongoose.connection.readyState >= 1) {
-    return;
-  }
+  if (mongoose.connection.readyState === 1) return mongoose.connection;
   if (!MONGO_URI) {
     throw new Error('MONGO_URI is not defined in environment variables.');
   }
-  await mongoose.connect(MONGO_URI, {
-    bufferCommands: false,
-    family: 4,               // Forces IPv4 to prevent ECONNRESET on serverless networks
-    serverSelectionTimeoutMS: 5000 // Fails fast if connection times out instead of hanging
-  });
+  if (!mongoConnectionPromise) {
+    mongoConnectionPromise = mongoose.connect(MONGO_URI, {
+      bufferCommands: false,
+      family: 4,
+      serverSelectionTimeoutMS: 5000
+    }).then(() => mongoose.connection).catch(error => {
+      mongoConnectionPromise = null;
+      throw error;
+    });
+  }
+  return mongoConnectionPromise;
 }
+
+mongoose.connection.on('disconnected', () => {
+  mongoConnectionPromise = null;
+  console.warn('MongoDB disconnected; the next request will reconnect.');
+});
+mongoose.connection.on('error', error => {
+  console.error('MongoDB connection error:', error.message);
+});
 
 function getPincodeServiceability(pincode) {
   const parsePrefixes = setting => setting.split(',').map(prefix => prefix.trim()).filter(Boolean);
@@ -62,8 +129,71 @@ function getPincodeServiceability(pincode) {
   };
 }
 
+function validateCustomerDetails(body) {
+  const { customerName, phone, address, pincode } = body || {};
+  if (typeof customerName !== 'string' || customerName.trim().length < 2 || customerName.length > 100
+    || typeof phone !== 'string' || !/^[+\d\s()-]{8,20}$/.test(phone)
+    || typeof address !== 'string' || address.trim().length < 5 || address.length > 500
+    || typeof pincode !== 'string' || !/^\d{6}$/.test(pincode)) {
+    return 'Enter valid customer and delivery details.';
+  }
+  return '';
+}
+
+async function priceCart(items) {
+  if (!Array.isArray(items) || !items.length || items.length > 30) {
+    return { error: 'Add at least one valid cart item.' };
+  }
+
+  const quantitiesById = new Map();
+  for (const item of items) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)
+      || !mongoose.isValidObjectId(item.productId)
+      || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 20
+      || !['A4', 'A3'].includes(item.size)
+      || !['Unframed', 'Framed'].includes(item.frame)) {
+      return { error: 'One or more cart items are invalid. Please refresh your cart and try again.' };
+    }
+    const productId = String(item.productId).toLowerCase();
+    const quantity = (quantitiesById.get(productId) || 0) + item.quantity;
+    if (quantity > 20) {
+      return { error: 'A product cannot exceed 20 total items per order.' };
+    }
+    quantitiesById.set(productId, quantity);
+  }
+
+  await connectDB();
+  const products = await Product.find({
+    _id: { $in: [...quantitiesById.keys()] },
+    inStock: { $ne: false }
+  });
+  if (products.length !== quantitiesById.size) {
+    return { error: 'One or more products are unavailable. Please refresh your cart.' };
+  }
+
+  const productsById = new Map(products.map(product => [String(product._id).toLowerCase(), product]));
+  const orderItems = items.map(requested => {
+    const product = productsById.get(String(requested.productId).toLowerCase());
+    return {
+      productId: product._id,
+      title: product.title,
+      image: product.image,
+      price: product.price,
+      quantity: requested.quantity,
+      size: requested.size,
+      frame: requested.frame
+    };
+  });
+  const rawTotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  if (!Number.isFinite(rawTotal) || !Number.isSafeInteger(Math.round(rawTotal * 100))) {
+    return { error: 'The cart total is outside the supported payment range.' };
+  }
+  const total = Math.round(rawTotal * 100) / 100;
+  return { orderItems, total };
+}
+
 // Admin Authentication Route
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', loginRateLimit, (req, res) => {
   if (!isAdminAuthConfigured()) {
     return res.status(503).json({ error: 'Admin authentication is not configured on the server.' });
   }
@@ -71,7 +201,7 @@ app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body || {};
 
   if (username === ADMIN_USER && password === ADMIN_PASS) {
-    const token = jwt.sign({ username: ADMIN_USER }, JWT_SECRET, {
+    const token = jwt.sign({ username: ADMIN_USER, isAdmin: true }, JWT_SECRET, {
       algorithm: 'HS256',
       expiresIn: '1h'
     });
@@ -91,7 +221,7 @@ function verifyAdmin(req, res, next) {
   }
 
   jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }, (err, user) => {
-    if (err || !user || user.username !== ADMIN_USER) {
+    if (err || !user || user.username !== ADMIN_USER || user.isAdmin !== true) {
       return res.status(403).json({ error: 'Invalid or expired admin token.' });
     }
 
@@ -127,6 +257,7 @@ app.get('/share/:id', async (req, res) => {
     const previewUrl = new URL(product.image, `${baseUrl}/`).toString();
     if (!['http:', 'https:'].includes(new URL(previewUrl).protocol)) return res.sendStatus(400);
     const destination = `/products.html?product=${encodeURIComponent(String(product._id))}`;
+    const shareUrl = new URL(`/share/${encodeURIComponent(String(product._id))}`, `${baseUrl}/`).toString();
     const title = `${product.title} | Starboy Crafted`;
     const description = `Explore ${product.title} from Starboy Crafted, priced at ₹${product.price}.`;
     res.type('html').send(`<!DOCTYPE html>
@@ -135,6 +266,8 @@ app.get('/share/:id', async (req, res) => {
       <meta name="description" content="${escapeHtml(description)}">
       <meta property="og:type" content="product"><meta property="og:title" content="${escapeHtml(title)}">
       <meta property="og:description" content="${escapeHtml(description)}">
+      <link rel="canonical" href="${escapeHtml(shareUrl)}">
+      <meta property="og:url" content="${escapeHtml(shareUrl)}">
       <meta property="og:image" content="${escapeHtml(previewUrl)}">
       <meta name="twitter:card" content="summary_large_image">
       <meta http-equiv="refresh" content="0;url=${escapeHtml(destination)}">
@@ -163,67 +296,143 @@ app.post('/api/serviceability', (req, res) => {
   return res.json(result);
 });
 
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', checkoutRateLimit, async (req, res) => {
   try {
-    const { customerName, phone, address, pincode, items } = req.body || {};
-    if (typeof customerName !== 'string' || customerName.trim().length < 2 || customerName.length > 100
-      || typeof phone !== 'string' || !/^[+\d\s()-]{8,20}$/.test(phone)
-      || typeof address !== 'string' || address.trim().length < 5 || address.length > 500
-      || typeof pincode !== 'string' || !/^\d{6}$/.test(pincode)
-      || !Array.isArray(items) || !items.length || items.length > 30) {
-      return res.status(400).json({ error: 'Enter valid customer and delivery details and at least one cart item.' });
-    }
+    const body = req.body || {};
+    const { customerName, phone, address, pincode } = body;
+    const detailsError = validateCustomerDetails(body);
+    if (detailsError) return res.status(400).json({ error: detailsError });
     const delivery = getPincodeServiceability(pincode);
     if (delivery.error) return res.status(503).json({ error: delivery.error });
     if (delivery.configured && !delivery.serviceable) {
       return res.status(400).json({ error: 'Delivery is not currently available for this PIN code.' });
     }
 
-    await connectDB();
-    const quantitiesById = new Map();
-    for (const item of items) {
-      if (!item || typeof item !== 'object' || Array.isArray(item)
-        || !mongoose.isValidObjectId(item.productId)
-        || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 20
-        || !['A4', 'A3'].includes(item.size)
-        || !['Unframed', 'Framed'].includes(item.frame)) {
-        return res.status(400).json({ error: 'One or more cart items are invalid. Please refresh your cart and try again.' });
-      }
-      const productId = String(item.productId).toLowerCase();
-      quantitiesById.set(productId, (quantitiesById.get(productId) || 0) + item.quantity);
-    }
-
-    const products = await Product.find({ _id: { $in: [...quantitiesById.keys()] }, inStock: { $ne: false } });
-    if (products.length !== quantitiesById.size) {
-      return res.status(400).json({ error: 'One or more products are unavailable. Please refresh your cart.' });
-    }
-    const productsById = new Map(products.map(product => [String(product._id).toLowerCase(), product]));
-    const orderItems = items.map(requested => {
-      const product = productsById.get(String(requested.productId).toLowerCase());
-      return {
-        productId: product._id,
-        title: product.title,
-        image: product.image,
-        price: product.price,
-        quantity: requested.quantity,
-        size: requested.size,
-        frame: requested.frame
-      };
-    });
-    const total = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const pricedCart = await priceCart(body.items);
+    if (pricedCart.error) return res.status(400).json({ error: pricedCart.error });
     const order = await Order.create({
       orderId: `SB-${crypto.randomBytes(10).toString('hex').toUpperCase()}`,
       customerName: customerName.trim(),
       phone: phone.trim(),
       address: address.trim(),
       pincode,
-      items: orderItems,
-      total
+      items: pricedCart.orderItems,
+      total: pricedCart.total
     });
     res.status(201).json({ orderId: order.orderId, total: order.total, status: order.status });
   } catch (err) {
     console.error('Error creating order:', err.message);
     res.status(500).json({ error: 'We could not save your order request. Please try WhatsApp again.' });
+  }
+});
+
+app.post('/api/payments/create-order', checkoutRateLimit, async (req, res) => {
+  if (!razorpay) {
+    return res.status(503).json({ error: 'Online payments are not configured. Please use WhatsApp checkout.' });
+  }
+  try {
+    const body = req.body || {};
+    const { customerName, phone, address, pincode } = body;
+    const detailsError = validateCustomerDetails(body);
+    if (detailsError) return res.status(400).json({ error: detailsError });
+    const delivery = getPincodeServiceability(pincode);
+    if (delivery.error) return res.status(503).json({ error: delivery.error });
+    if (delivery.configured && !delivery.serviceable) {
+      return res.status(400).json({ error: 'Delivery is not currently available for this PIN code.' });
+    }
+
+    const pricedCart = await priceCart(body.items);
+    if (pricedCart.error) return res.status(400).json({ error: pricedCart.error });
+    const amount = Math.round(pricedCart.total * 100);
+    if (!Number.isSafeInteger(amount) || amount < 100) {
+      return res.status(400).json({ error: 'The cart total is below the minimum online payment amount.' });
+    }
+
+    const orderId = `SB-${crypto.randomBytes(10).toString('hex').toUpperCase()}`;
+    const gatewayOrder = await razorpay.orders.create({
+      amount,
+      currency: 'INR',
+      receipt: orderId,
+      notes: { storeOrderId: orderId }
+    });
+    if (!gatewayOrder || typeof gatewayOrder.id !== 'string'
+      || gatewayOrder.amount !== amount || gatewayOrder.currency !== 'INR') {
+      throw new Error('Razorpay returned an invalid order response.');
+    }
+    const order = await Order.create({
+      orderId,
+      customerName: customerName.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      pincode,
+      items: pricedCart.orderItems,
+      total: pricedCart.total,
+      paymentStatus: 'Pending',
+      razorpayOrderId: gatewayOrder.id
+    });
+    res.status(201).json({
+      keyId: RAZORPAY_KEY_ID,
+      razorpayOrderId: gatewayOrder.id,
+      orderId: order.orderId,
+      amount: gatewayOrder.amount,
+      currency: gatewayOrder.currency,
+      customerName: order.customerName,
+      phone: order.phone
+    });
+  } catch (err) {
+    console.error('Error creating Razorpay order:', err.message);
+    res.status(502).json({ error: 'We could not start online payment. Please try WhatsApp checkout.' });
+  }
+});
+
+app.post('/api/payments/verify', checkoutRateLimit, async (req, res) => {
+  if (!razorpay) {
+    return res.status(503).json({ error: 'Online payments are not configured.' });
+  }
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
+  if (typeof razorpay_order_id !== 'string' || typeof razorpay_payment_id !== 'string'
+    || typeof razorpay_signature !== 'string' || !/^[a-f0-9]{64}$/i.test(razorpay_signature)) {
+    return res.status(400).json({ error: 'Payment verification details are invalid.' });
+  }
+
+  const expectedSignature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest();
+  const receivedSignature = Buffer.from(razorpay_signature, 'hex');
+  if (expectedSignature.length !== receivedSignature.length
+    || !crypto.timingSafeEqual(expectedSignature, receivedSignature)) {
+    return res.status(400).json({ error: 'Payment signature could not be verified.' });
+  }
+
+  try {
+    await connectDB();
+    const order = await Order.findOne({ razorpayOrderId: razorpay_order_id });
+    if (!order) return res.status(404).json({ error: 'The payment order could not be found.' });
+    if (order.paymentStatus === 'Paid') {
+      if (order.razorpayPaymentId === razorpay_payment_id) {
+        return res.json({ orderId: order.orderId, paymentStatus: order.paymentStatus });
+      }
+      return res.status(409).json({ error: 'This order has already been paid.' });
+    }
+
+    let payment = await razorpay.payments.fetch(razorpay_payment_id);
+    if (payment.order_id !== razorpay_order_id || payment.amount !== Math.round(order.total * 100)
+      || payment.currency !== 'INR') {
+      return res.status(400).json({ error: 'The payment details do not match this order.' });
+    }
+    if (payment.status === 'authorized') {
+      payment = await razorpay.payments.capture(payment.id, payment.amount, payment.currency);
+    }
+    if (payment.status !== 'captured') {
+      return res.status(400).json({ error: 'The payment is not captured for this order.' });
+    }
+    order.paymentStatus = 'Paid';
+    order.razorpayPaymentId = razorpay_payment_id;
+    await order.save();
+    res.json({ orderId: order.orderId, paymentStatus: order.paymentStatus });
+  } catch (err) {
+    console.error('Error verifying Razorpay payment:', err.message);
+    res.status(500).json({ error: 'Payment verification is temporarily unavailable.' });
   }
 });
 
@@ -252,6 +461,104 @@ app.get('/api/reviews', async (req, res) => {
   } catch (err) {
     console.error('Error fetching reviews:', err.message);
     res.status(500).json({ error: 'Reviews are temporarily unavailable.' });
+  }
+});
+
+app.get('/api/admin/products', verifyAdmin, async (req, res) => {
+  try {
+    await connectDB();
+    const products = await Product.find({}).sort({ createdAt: -1 });
+    res.json(products);
+  } catch (err) {
+    console.error('Error fetching admin products:', err.message);
+    res.status(500).json({ error: 'Products could not be loaded.' });
+  }
+});
+
+function validateProductInput(input, partial = false) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return { error: 'Provide product details.' };
+  }
+  const allowedFields = new Set(['title', 'category', 'price', 'originalPrice', 'discount', 'badge', 'image', 'inStock']);
+  if (Object.keys(input).some(key => !allowedFields.has(key))) {
+    return { error: 'One or more product fields are not supported.' };
+  }
+  const fields = Object.keys(input);
+  if (!partial && ['title', 'category', 'price', 'image'].some(key => !(key in input))) {
+    return { error: 'Title, category, price, and image are required.' };
+  }
+  const product = {};
+  for (const field of fields) {
+    const value = input[field];
+    if (['title', 'category', 'discount', 'badge', 'image'].includes(field)) {
+      if (typeof value !== 'string' || (['title', 'category', 'image'].includes(field) && !value.trim())) {
+        return { error: `Enter a valid ${field}.` };
+      }
+      product[field] = value.trim();
+    } else if (field === 'price' || field === 'originalPrice') {
+      if (field === 'originalPrice' && value === null) {
+        product[field] = null;
+      } else if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+        return { error: `Enter a valid ${field}.` };
+      } else {
+        product[field] = value;
+      }
+    } else if (field === 'inStock') {
+      if (typeof value !== 'boolean') return { error: 'Stock status must be true or false.' };
+      product[field] = value;
+    }
+  }
+  return { product };
+}
+
+app.post('/api/admin/products', verifyAdmin, async (req, res) => {
+  const validated = validateProductInput(req.body);
+  if (validated.error) return res.status(400).json({ error: validated.error });
+  try {
+    await connectDB();
+    const product = await Product.create(validated.product);
+    res.status(201).json(product);
+  } catch (err) {
+    console.error('Error creating admin product:', err.message);
+    res.status(err.name === 'ValidationError' ? 400 : 500).json({
+      error: err.name === 'ValidationError' ? 'Product details are invalid.' : 'Product could not be created.'
+    });
+  }
+});
+
+app.put('/api/admin/products/:id', verifyAdmin, async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Product ID is invalid.' });
+  const validated = validateProductInput(req.body, true);
+  if (validated.error || !Object.keys(validated.product || {}).length) {
+    return res.status(400).json({ error: validated.error || 'Provide at least one product field to update.' });
+  }
+  try {
+    await connectDB();
+    const product = await Product.findByIdAndUpdate(req.params.id, validated.product, {
+      new: true,
+      runValidators: true,
+      strict: 'throw'
+    });
+    if (!product) return res.status(404).json({ error: 'Product not found.' });
+    res.json(product);
+  } catch (err) {
+    console.error('Error updating admin product:', err.message);
+    res.status(err.name === 'ValidationError' ? 400 : 500).json({
+      error: err.name === 'ValidationError' ? 'Product details are invalid.' : 'Product could not be updated.'
+    });
+  }
+});
+
+app.delete('/api/admin/products/:id', verifyAdmin, async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Product ID is invalid.' });
+  try {
+    await connectDB();
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) return res.status(404).json({ error: 'Product not found.' });
+    res.json({ message: 'Product deleted successfully.' });
+  } catch (err) {
+    console.error('Error deleting admin product:', err.message);
+    res.status(500).json({ error: 'Product could not be deleted.' });
   }
 });
 
@@ -297,8 +604,13 @@ app.patch('/api/admin/orders/:id', verifyAdmin, async (req, res) => {
   }
   try {
     await connectDB();
-    const order = await Order.findOneAndUpdate({ orderId: req.params.id }, { status }, { new: true });
-    if (!order) return res.status(404).json({ error: 'Order not found.' });
+    const currentOrder = await Order.findOne({ orderId: req.params.id });
+    if (!currentOrder) return res.status(404).json({ error: 'Order not found.' });
+    if (currentOrder.paymentStatus === 'Pending' && status !== 'Printing') {
+      return res.status(409).json({ error: 'A pending online payment cannot be packed or shipped.' });
+    }
+    currentOrder.status = status;
+    const order = await currentOrder.save();
     res.json(order);
   } catch (err) {
     console.error('Error updating order status:', err.message);
@@ -332,35 +644,27 @@ app.patch('/api/admin/reviews/:id', verifyAdmin, async (req, res) => {
   }
 });
 
-// Add Product (Protected/Admin)
-app.post('/api/products', verifyAdmin, async (req, res) => {
-  try {
-    await connectDB();
-    const newProduct = new Product(req.body);
-    await newProduct.save();
-    res.status(201).json(newProduct);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// Delete Product (Protected/Admin)
-app.delete('/api/products/:id', verifyAdmin, async (req, res) => {
-  try {
-    await connectDB();
-    await Product.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Product deleted successfully' });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
 // Explicit root route handler to serve index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body is too large.' });
+  }
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Request body must contain valid JSON.' });
+  }
+  console.error('Unhandled request error:', err.message);
+  res.status(500).json({ error: 'The request could not be completed.' });
+});
+
 // Start locally if run directly, or export for Vercel serverless deployment
+if (require.main === module || process.env.VERCEL) {
+  validateStartupConfig();
+}
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server running live on http://localhost:${PORT}`);

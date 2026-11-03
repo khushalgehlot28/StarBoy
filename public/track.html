@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Track your order | Starboy Crafted</title>
   <meta name="description" content="Check the latest fulfilment status of your Starboy Crafted poster order.">
+  <link rel="canonical" href="https://starboy-six.vercel.app/track.html">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Track your order | Starboy Crafted">
   <meta property="og:description" content="Check the latest fulfilment status of your poster order.">
-  <meta property="og:image" content="assets/images/1.jpg">
+  <meta property="og:url" content="https://starboy-six.vercel.app/track.html">
+  <meta property="og:image" content="https://starboy-six.vercel.app/assets/images/1.jpg">
+  <meta property="og:image:alt" content="Anime-inspired poster displayed in a room">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -85,6 +88,8 @@
     const trackingForm = document.getElementById('trackingForm');
     const trackingStatus = document.getElementById('trackingStatus');
     const trackingResult = document.getElementById('trackingResult');
+    const sharedOrderId = new URLSearchParams(window.location.search).get('order');
+    if (sharedOrderId) document.getElementById('orderId').value = sharedOrderId;
     trackingForm.addEventListener('submit', async event => {
       event.preventDefault();
       trackingStatus.textContent = 'Checking your order…';

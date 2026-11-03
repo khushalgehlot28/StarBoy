@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Starboy Crafted | Admin CMS Dashboard</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -70,7 +71,7 @@
         </div>
         <div class="form-group">
           <label>Password</label>
-          <input type="password" id="password" required placeholder="starboy2026">
+          <input type="password" id="password" required placeholder="Enter admin password">
         </div>
         <button type="submit" class="btn">Login to CMS</button>
       </form>
@@ -113,7 +114,8 @@
             <label>Image URL / Path</label>
             <input type="text" id="pImage" required placeholder="assets/images/project1.jpg">
           </div>
-          <button type="submit" class="btn">Publish Product</button>
+          <button type="submit" class="btn" id="productSubmitButton">Publish Product</button>
+          <button type="button" class="btn hidden" id="cancelProductEdit" onclick="cancelProductEdit()">Cancel edit</button>
         </form>
       </div>
 
@@ -138,8 +140,8 @@
         <h2>Order tracking</h2>
         <p>Update an order status to reflect its latest fulfilment stage.</p>
         <table>
-          <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Save</th></tr></thead>
-          <tbody id="orderTableBody"><tr><td colspan="6">Loading orders…</td></tr></tbody>
+          <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Save</th></tr></thead>
+          <tbody id="orderTableBody"><tr><td colspan="7">Loading orders…</td></tr></tbody>
         </table>
       </div>
 
@@ -155,6 +157,8 @@
   <script>
     // Updated to use relative path for production & local flexibility
     const API_URL = '/api';
+    let adminProducts = [];
+    let editingProductId = null;
 
     async function handleLogin(e) {
       e.preventDefault();
@@ -201,23 +205,27 @@
     }
 
     async function loadProductsAdmin() {
+      const tbody = document.getElementById('productTableBody');
       try {
-        const res = await fetch(`${API_URL}/products`);
-        const products = await res.json();
-        const tbody = document.getElementById('productTableBody');
-        tbody.innerHTML = '';
-        products.forEach(p => {
-          tbody.innerHTML += `
-            <tr>
-              <td><strong>${p.title}</strong></td>
-              <td>${p.category || 'N/A'}</td>
-              <td>₹${p.price}</td>
-              <td><button class="btn btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="deleteProduct('${p._id}')">Delete</button></td>
-            </tr>
-          `;
+        const res = await fetch(`${API_URL}/admin/products`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('starboy_token')}` }
         });
-      } catch (err) {
-        console.error('Failed to load products');
+        const products = await res.json();
+        if (!res.ok) throw new Error(products.error || 'Products could not be loaded.');
+        adminProducts = products;
+        tbody.innerHTML = products.length ? products.map(p => `
+            <tr>
+              <td><strong>${escapeAdminHtml(p.title)}</strong></td>
+              <td>${escapeAdminHtml(p.category || 'N/A')}</td>
+              <td>₹${Number(p.price).toLocaleString('en-IN')}</td>
+              <td>
+                <button class="btn" type="button" data-edit-product="${escapeAdminHtml(p._id)}">Edit</button>
+                <button class="btn btn-danger" type="button" data-delete-product="${escapeAdminHtml(p._id)}">Delete</button>
+              </td>
+            </tr>
+          `).join('') : '<tr><td colspan="4">No products available.</td></tr>';
+      } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="4">${escapeAdminHtml(error.message)}</td></tr>`;
       }
     }
 
@@ -241,12 +249,13 @@
             <td>${escapeAdminHtml(order.customerName)}<br>${escapeAdminHtml(order.phone)}<br>${escapeAdminHtml(order.address)}, ${escapeAdminHtml(order.pincode)}</td>
             <td>${order.items.map(item => `${escapeAdminHtml(item.title)} · ${escapeAdminHtml(item.size)} · ${escapeAdminHtml(item.frame)} × ${item.quantity}`).join('<br>')}</td>
             <td>₹${Number(order.total).toLocaleString('en-IN')}</td>
-            <td><select data-order-status="${escapeAdminHtml(order.orderId)}">
+            <td>${escapeAdminHtml(order.paymentStatus || 'Not required')}</td>
+            <td><select data-order-status="${escapeAdminHtml(order.orderId)}" ${order.paymentStatus === 'Pending' ? 'disabled' : ''}>
               ${['Printing', 'Packed', 'Shipped'].map(status => `<option ${status === order.status ? 'selected' : ''}>${status}</option>`).join('')}
             </select></td>
-            <td><button class="btn" type="button" data-save-order="${escapeAdminHtml(order.orderId)}">Update</button></td>
+            <td><button class="btn" type="button" data-save-order="${escapeAdminHtml(order.orderId)}" ${order.paymentStatus === 'Pending' ? 'disabled' : ''}>Update</button></td>
           </tr>
-        `).join('') : '<tr><td colspan="6">No order requests yet.</td></tr>';
+        `).join('') : '<tr><td colspan="7">No order requests yet.</td></tr>';
       } catch (error) {
         tbody.innerHTML = `<tr><td colspan="6">${escapeAdminHtml(error.message)}</td></tr>`;
       }
@@ -305,22 +314,49 @@
       loadReviewsAdmin();
     }
 
+    function editProduct(id) {
+      const product = adminProducts.find(item => item._id === id);
+      if (!product) return;
+      editingProductId = id;
+      document.getElementById('pTitle').value = product.title;
+      document.getElementById('pCategory').value = product.category;
+      document.getElementById('pPrice').value = product.price;
+      document.getElementById('pOriginalPrice').value = product.originalPrice ?? '';
+      document.getElementById('pDiscount').value = product.discount || '';
+      document.getElementById('pBadge').value = product.badge || '';
+      document.getElementById('pImage').value = product.image;
+      document.getElementById('productSubmitButton').textContent = 'Save product changes';
+      document.getElementById('cancelProductEdit').classList.remove('hidden');
+      document.getElementById('productForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelProductEdit() {
+      editingProductId = null;
+      document.getElementById('productForm').reset();
+      document.getElementById('productSubmitButton').textContent = 'Publish Product';
+      document.getElementById('cancelProductEdit').classList.add('hidden');
+    }
+
     async function handleAddProduct(e) {
       e.preventDefault();
       const token = localStorage.getItem('starboy_token');
+      const isEditing = Boolean(editingProductId);
       const newProduct = {
         title: document.getElementById('pTitle').value,
         category: document.getElementById('pCategory').value,
         price: Number(document.getElementById('pPrice').value),
-        originalPrice: Number(document.getElementById('pOriginalPrice').value) || 0,
+        originalPrice: document.getElementById('pOriginalPrice').value === '' ? null : Number(document.getElementById('pOriginalPrice').value),
         discount: document.getElementById('pDiscount').value,
         badge: document.getElementById('pBadge').value,
         image: document.getElementById('pImage').value
       };
 
       try {
-        const res = await fetch(`${API_URL}/products`, {
-          method: 'POST',
+        const productUrl = isEditing
+          ? `${API_URL}/admin/products/${encodeURIComponent(editingProductId)}`
+          : `${API_URL}/admin/products`;
+        const res = await fetch(productUrl, {
+          method: isEditing ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -329,9 +365,9 @@
         });
         const data = await res.json();
         if (res.ok) {
-          document.getElementById('productForm').reset();
+          cancelProductEdit();
           loadProductsAdmin();
-          alert('Product added successfully!');
+          alert(isEditing ? 'Product updated successfully!' : 'Product added successfully!');
         } else {
           alert(data.error || 'Failed to add product');
         }
@@ -344,7 +380,7 @@
       if (!confirm('Are you sure you want to delete this product?')) return;
       const token = localStorage.getItem('starboy_token');
       try {
-        const res = await fetch(`${API_URL}/products/${id}`, {
+        const res = await fetch(`${API_URL}/admin/products/${encodeURIComponent(id)}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -355,22 +391,27 @@
           alert(data.error || 'Failed to delete');
         }
 
-        document.addEventListener('click', async event => {
-          const target = event.target;
-          if (!(target instanceof Element)) return;
-          const orderButton = target.closest('[data-save-order]');
-          const reviewButton = target.closest('[data-review-id]');
-          try {
-            if (orderButton) await saveOrderStatus(orderButton.dataset.saveOrder);
-            if (reviewButton) await setReviewApproval(reviewButton.dataset.reviewId, reviewButton.dataset.approved === 'true');
-          } catch (error) {
-            alert(error.message || 'The update could not be saved.');
-          }
-        });
       } catch (err) {
         alert('Error connecting to server');
       }
     }
+
+    document.addEventListener('click', async event => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const editButton = target.closest('[data-edit-product]');
+      const deleteButton = target.closest('[data-delete-product]');
+      const orderButton = target.closest('[data-save-order]');
+      const reviewButton = target.closest('[data-review-id]');
+      try {
+        if (editButton) editProduct(editButton.dataset.editProduct);
+        if (deleteButton) await deleteProduct(deleteButton.dataset.deleteProduct);
+        if (orderButton) await saveOrderStatus(orderButton.dataset.saveOrder);
+        if (reviewButton) await setReviewApproval(reviewButton.dataset.reviewId, reviewButton.dataset.approved === 'true');
+      } catch (error) {
+        alert(error.message || 'The update could not be saved.');
+      }
+    });
 
     // Initialize check on load
     checkAuth();

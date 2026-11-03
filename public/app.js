@@ -1,5 +1,16 @@
 let allProducts = [];
-let cart = loadCart();
+
+const CartManager = {
+  getCart() {
+    return loadCart();
+  },
+  saveCart(items) {
+    localStorage.setItem('starboy_cart', JSON.stringify(items));
+    window.dispatchEvent(new Event('cartUpdated'));
+  }
+};
+
+let cart = CartManager.getCart();
 
 function loadCart() {
   try {
@@ -15,8 +26,19 @@ function loadCart() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initializeStorefrontEnhancements();
-  fetchProducts();
+  if (document.getElementById('productGrid')
+    || document.getElementById('suggestedProductGrid')
+    || document.getElementById('bestsellerProductGrid')) {
+    fetchProducts();
+  }
   updateCartUI();
+  window.addEventListener('cartUpdated', updateCartUI);
+  window.addEventListener('storage', event => {
+    if (event.key === 'starboy_cart') {
+      cart = loadCart();
+      updateCartUI();
+    }
+  });
 
   const contactForm = document.getElementById('contactMessageForm');
   if (contactForm) {
@@ -29,8 +51,22 @@ document.addEventListener('DOMContentLoaded', () => {
         `Message: ${formData.get('message')}`
       ].join('\n');
       const whatsappUrl = `https://wa.me/919521226338?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-      document.getElementById('contactFormStatus').textContent = 'WhatsApp opened with your message. Send it there to reach us.';
+      const status = document.getElementById('contactFormStatus');
+      const whatsappWindow = window.open(whatsappUrl, '_blank');
+      status.replaceChildren();
+      if (whatsappWindow) {
+        whatsappWindow.opener = null;
+        status.textContent = 'WhatsApp opened with your message. Review and send it there to reach us.';
+        return;
+      }
+
+      status.append('Your browser blocked the WhatsApp window. ');
+      const whatsappLink = document.createElement('a');
+      whatsappLink.href = whatsappUrl;
+      whatsappLink.target = '_blank';
+      whatsappLink.rel = 'noopener noreferrer';
+      whatsappLink.textContent = 'Open WhatsApp to review and send your message.';
+      status.append(whatsappLink);
     });
   }
 
@@ -280,6 +316,8 @@ function initializeStorefrontEnhancements() {
       <label>PIN code<input name="pincode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label>
       <button class="btn-quick-view" type="button" data-check-pin>Check delivery & COD</button>
       <p class="pin-status" data-pin-status role="status" aria-live="polite"></p>
+      <button class="btn-quick-view" type="button" data-pay-online>Pay online with Razorpay</button>
+      <p class="modal-note">Online payment uses listed poster prices. Framed and size-specific pricing is confirmed separately on WhatsApp.</p>
       <button class="btn-add-cart" type="submit">Continue via WhatsApp</button>
       <p class="checkout-result" role="status" aria-live="polite"></p>
     </form>
@@ -297,6 +335,8 @@ function initializeStorefrontEnhancements() {
       const pincode = pinScope?.querySelector('[name="pincode"], [name="quickViewPincode"]')?.value || '';
       checkPincode(pincode, pinScope?.querySelector('[data-pin-status]'));
     }
+    const paymentButton = target.closest('[data-pay-online]');
+    if (paymentButton) startRazorpayCheckout(paymentButton);
   });
 
   const checkoutForm = document.getElementById('checkoutForm');
@@ -380,6 +420,103 @@ async function checkPincode(pincode, statusElement) {
   } catch (error) {
     statusElement.textContent = error.message || 'Could not check this PIN code. Please contact us.';
     statusElement.classList.add('is-error');
+  }
+}
+
+let razorpayScriptPromise;
+
+function loadRazorpayCheckout() {
+  if (window.Razorpay) return Promise.resolve();
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+  razorpayScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = resolve;
+    script.onerror = () => {
+      razorpayScriptPromise = null;
+      reject(new Error('Online checkout could not be loaded. Please try WhatsApp checkout.'));
+    };
+    document.head.append(script);
+  });
+  return razorpayScriptPromise;
+}
+
+async function startRazorpayCheckout(button) {
+  const form = button.closest('form');
+  if (!form || !form.reportValidity()) return;
+  if (!cart.length) {
+    form.querySelector('.checkout-result').textContent = 'Your cart is empty.';
+    return;
+  }
+
+  const formData = new FormData(form);
+  const resultElement = form.querySelector('.checkout-result');
+  button.disabled = true;
+  resultElement.textContent = 'Preparing secure online checkout…';
+  try {
+    const response = await fetch('/api/payments/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerName: formData.get('customerName'),
+        phone: formData.get('phone'),
+        address: formData.get('address'),
+        pincode: formData.get('pincode'),
+        items: cart.map(item => ({
+          productId: item._id,
+          quantity: item.quantity,
+          size: item.size || 'A4',
+          frame: item.frame || 'Unframed'
+        }))
+      })
+    });
+    const order = await response.json();
+    if (!response.ok) throw new Error(order.error || 'Could not start online checkout.');
+    await loadRazorpayCheckout();
+
+    const checkout = new window.Razorpay({
+      key: order.keyId,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'Starboy Crafted',
+      description: 'Anime posters',
+      order_id: order.razorpayOrderId,
+      prefill: { name: order.customerName, contact: order.phone },
+      notes: { storeOrderId: order.orderId },
+      theme: { color: '#b7f35a' },
+      handler: async payment => {
+        resultElement.textContent = 'Verifying your payment…';
+        try {
+          const verificationResponse = await fetch('/api/payments/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payment)
+          });
+          const verification = await verificationResponse.json();
+          if (!verificationResponse.ok) {
+            throw new Error(verification.error || 'Payment verification failed. Please contact us before retrying.');
+          }
+          resultElement.textContent = `Payment confirmed. Your order ID is ${verification.orderId}. `;
+          const trackingLink = document.createElement('a');
+          trackingLink.href = `track.html?order=${encodeURIComponent(verification.orderId)}`;
+          trackingLink.textContent = 'Track your order';
+          resultElement.append(trackingLink);
+          cart = [];
+          saveAndRefreshCart();
+        } catch (error) {
+          resultElement.textContent = error.message || 'Payment verification failed. Please contact us.';
+        }
+      }
+    });
+    checkout.on('payment.failed', payment => {
+      resultElement.textContent = payment.error?.description || 'Payment did not complete. You can try again or use WhatsApp checkout.';
+    });
+    resultElement.textContent = '';
+    checkout.open();
+  } catch (error) {
+    resultElement.textContent = error.message || 'Online checkout could not be started.';
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -643,11 +780,11 @@ function changeQuantity(productId, delta) {
 // Save to LocalStorage and Update View
 function saveAndRefreshCart() {
   try {
-    localStorage.setItem('starboy_cart', JSON.stringify(cart));
+    CartManager.saveCart(cart);
   } catch (error) {
     console.error('Could not save the cart:', error);
+    updateCartUI();
   }
-  updateCartUI();
 }
 
 // Render Cart Drawer & Calculate Totals

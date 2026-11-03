@@ -2363,3 +2363,418 @@ body.drawer-open {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Light gallery storefront */
+:root {
+  --bg: #f7f8f4;
+  --surface: #ffffff;
+  --surface-2: #eef2e9;
+  --text: #1c2a20;
+  --text-muted: #657367;
+  --brand-green: #397747;
+  --accent: #397747;
+  --border: #dce4d9;
+}
+
+body {
+  background: #f7f8f4;
+  color: var(--text);
+}
+
+.store-header {
+  border-color: #397747;
+  background: #397747;
+  box-shadow: 0 5px 22px rgba(32, 54, 35, 0.12);
+}
+
+.brand-logo {
+  color: #fff;
+}
+
+.store-nav a {
+  color: #e8f2e9;
+}
+
+.store-nav a:hover,
+.store-nav a[aria-current="page"] {
+  color: #fff;
+}
+
+.store-nav a[aria-current="page"] {
+  box-shadow: inset 0 -1px #fff;
+}
+
+.site-search {
+  border-color: #d8e0d5;
+  background: #f8faf6;
+}
+
+.site-search input {
+  color: #1c2a20;
+}
+
+.site-search input::placeholder {
+  color: #89958a;
+}
+
+.site-search button {
+  color: #28643a;
+}
+
+.site-search button:hover {
+  background: #e9f1e7;
+}
+
+.nav-actions a {
+  color: #fff;
+}
+
+.nav-actions a:last-child {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+#cartCount {
+  background: #fff;
+  color: #28643a;
+}
+
+.hero-section {
+  border-color: #e0e8dc;
+  background:
+    radial-gradient(ellipse at 78% 45%, rgba(116, 160, 90, 0.15), transparent 36%),
+    linear-gradient(120deg, #f1f5ed 0%, #fff 55%, #edf3e9 100%);
+}
+
+.hero-content h1,
+.catalog-heading h2,
+.bundle-heading h2,
+.page-intro h1,
+.contact-card h2 {
+  color: #1c2a20;
+}
+
+.hero-content p,
+.page-intro > p:last-child {
+  color: #59695c;
+}
+
+.hero-content .eyebrow,
+.eyebrow {
+  color: #397747 !important;
+}
+
+.hero-btn {
+  border-color: #397747;
+  background: #397747;
+  color: #fff;
+}
+
+.hero-btn:hover {
+  background: #2f673c;
+  color: #fff;
+}
+
+.hero-btn-secondary {
+  border-color: #b6c6b3;
+  background: #fff;
+  color: #2d6038;
+}
+
+.hero-btn-secondary:hover {
+  border-color: #397747;
+  background: #f1f6ef;
+  color: #244e2f;
+}
+
+.hero-image {
+  border-color: #d9e3d6;
+  background: #fff;
+  mix-blend-mode: normal;
+  box-shadow: 0 18px 42px rgba(38, 61, 40, 0.15);
+}
+
+.section-link,
+.bundle-heading > a,
+.clear-filters {
+  color: #28643a;
+}
+
+.section-link:hover,
+.bundle-heading > a:hover {
+  color: #194b2a;
+}
+
+.product-card {
+  border-color: #e0e6dd;
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(35, 54, 36, 0.06);
+}
+
+.product-card:hover {
+  border-color: #b9cfb5;
+  box-shadow: 0 12px 30px rgba(35, 54, 36, 0.12);
+}
+
+.product-img {
+  background: #f2f4ef;
+}
+
+.product-img img {
+  mix-blend-mode: normal;
+}
+
+.badge-bestseller {
+  border-color: #c9dbc6;
+  background: #eaf3e8;
+  color: #28643a;
+}
+
+.product-title {
+  color: #243328;
+}
+
+.product-category,
+.catalog-message {
+  color: #718073;
+}
+
+.price-current,
+.price-row .price-current {
+  color: #2e6d3d;
+}
+
+.price-original {
+  color: #879287;
+}
+
+.discount {
+  color: #8a650e;
+}
+
+.btn-add-cart {
+  background: #397747;
+  color: #fff;
+}
+
+.btn-add-cart:hover {
+  background: #2f673c;
+  color: #fff;
+}
+
+.btn-quick-view {
+  border-color: #cbd7c8;
+  background: #fff;
+  color: #35553a;
+}
+
+.btn-quick-view:hover {
+  border-color: #397747;
+  background: #eff5ed;
+  color: #28643a;
+}
+
+.filter-bar,
+.sort-control select,
+.category-control select {
+  border-color: #dce4d9;
+  background: #fff;
+  color: #344638;
+  color-scheme: light;
+}
+
+.sort-control,
+.category-control,
+.stock-control {
+  color: #526154;
+}
+
+.promo-card,
+.contact-card {
+  border-color: #e0e6dd;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(35, 54, 36, 0.06);
+}
+
+.page-content .promo-card h2 {
+  color: #243328;
+}
+
+.promo-card p,
+.offer-note,
+.contact-card p,
+.cart-price-note {
+  color: #667568;
+}
+
+.promo-card > a,
+.contact-card a {
+  color: #28643a;
+}
+
+.contact-form label,
+.quick-view-details > label,
+.store-form > label,
+.store-form label {
+  color: #445548;
+}
+
+.contact-form input,
+.contact-form textarea,
+.quick-view-details select,
+.store-form input,
+.store-form select,
+.store-form textarea {
+  border-color: #d4dfd1;
+  background: #fff;
+  color: #243328;
+  color-scheme: light;
+}
+
+.contact-form-note,
+.modal-note {
+  color: #68786a;
+}
+
+.contact-form-status,
+.pin-status,
+.checkout-result,
+.review-average,
+.review-form-status,
+.checkout-result a {
+  color: #28643a;
+}
+
+.pin-status.is-error {
+  color: #b42318;
+}
+
+.store-modal {
+  border-color: #dce4d9;
+  background: #fff;
+  color: #243328;
+  box-shadow: 0 24px 70px rgba(29, 47, 31, 0.24);
+}
+
+.store-modal::backdrop {
+  background: rgba(25, 39, 27, 0.42);
+}
+
+.modal-close {
+  border-color: #d7e0d4;
+  background: #f5f7f3;
+  color: #344638;
+}
+
+.quick-view-image {
+  border-color: #e0e6dd;
+  background: #f4f6f1;
+}
+
+.quick-view-price,
+.share-product-link {
+  color: #2e6d3d;
+}
+
+.share-product-link:hover {
+  color: #194b2a;
+}
+
+.cart-drawer {
+  border-color: #e0e6dd;
+  background: #fff !important;
+  color: #243328;
+  box-shadow: -14px 0 44px rgba(29, 47, 31, 0.18);
+}
+
+.cart-drawer-heading,
+.cart-summary,
+.cart-item {
+  border-color: #e4e9e1;
+}
+
+.cart-item > img {
+  background: #f1f4ee;
+}
+
+.cart-item-variant,
+.cart-item-price {
+  color: #68776a;
+}
+
+.cart-quantity button,
+#cartDrawer button:not(.btn-add-cart) {
+  border-color: #d7e0d4 !important;
+  background: #f4f7f2;
+  color: #344638;
+}
+
+.cart-summary {
+  background: #f7f9f5;
+}
+
+.cart-overlay {
+  background: rgba(26, 39, 28, 0.38) !important;
+}
+
+footer {
+  border-color: #397747;
+  background: #397747;
+  color: #e8f2e9;
+}
+
+.footer-col h4 {
+  color: #fff;
+}
+
+.footer-col ul li a {
+  color: #e8f2e9;
+}
+
+.footer-col ul li a:hover {
+  color: #fff;
+}
+
+.review-card,
+.review-form,
+.tracking-form,
+.tracking-result {
+  border-color: #e0e6dd;
+  background: #fff;
+}
+
+.review-card-heading,
+.tracking-form > label {
+  color: #344638;
+}
+
+.review-card p {
+  color: #59695c;
+}
+
+.review-card-heading span,
+.tracking-order-id {
+  color: #28643a;
+}
+
+.tracking-stages li {
+  color: #738175;
+}
+
+.tracking-stages li span {
+  border-color: #aebead;
+}
+
+.tracking-stages li.is-complete {
+  color: #28643a;
+}
+
+.tracking-stages li.is-complete span {
+  border-color: #397747;
+  background: #397747;
+  box-shadow: 0 0 10px rgba(57, 119, 71, 0.25);
+}
+
+.tracking-result > p:last-child {
+  color: #68786a;
+}
