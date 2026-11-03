@@ -21,10 +21,14 @@
       <a href="index.html" class="brand-logo"><img class="brand-mark" src="assets/images/starboy-mark.png" alt="">Starboy Crafted</a>
       <nav class="store-nav" aria-label="Main navigation">
         <a href="index.html">Home</a>
-        <a href="products.html">Shop all</a>
-        <a href="track.html" aria-current="page">Track order</a>
+        <a href="offers.html">Customize</a>
+        <a href="products.html">Products</a>
         <a href="contact.html">Contact</a>
       </nav>
+      <div class="nav-actions">
+        <a href="admin.html">Admin</a>
+        <a href="#" onclick="toggleCartDrawer(event)">🛒 Cart <span id="cartCount">0</span></a>
+      </div>
     </div>
   </header>
   <main class="catalog-section page-content tracking-page">
@@ -41,16 +45,38 @@
       <section id="trackingResult" class="tracking-result" aria-live="polite" hidden></section>
     </form>
   </main>
+  <div id="cartDrawer" class="cart-drawer" role="dialog" aria-modal="true" aria-label="Shopping cart" aria-hidden="true">
+    <div class="cart-drawer-heading">
+      <h3>Your Shopping Cart</h3>
+      <button onclick="toggleCartDrawer()" class="modal-close" aria-label="Close cart">✕</button>
+    </div>
+    <div id="cartItemsContainer" class="cart-items-container">
+      <p class="catalog-message">Your cart is empty.</p>
+    </div>
+    <div class="cart-summary">
+      <div class="cart-total">
+        <span>Poster subtotal:</span>
+        <span id="cartTotalPrice">₹0</span>
+      </div>
+      <p class="cart-price-note">Framed and size-specific pricing is confirmed on WhatsApp.</p>
+      <button onclick="proceedToCheckout()" class="btn-add-cart">Proceed to Checkout</button>
+    </div>
+  </div>
+  <div id="cartOverlay" class="cart-overlay" aria-hidden="true" onclick="toggleCartDrawer()"></div>
   <footer>
     <div class="footer-container">
       <div class="footer-col contact-info">
         <h4>Starboy Crafted</h4>
         <p>Jodhpur, Rajasthan, 342003</p>
         <p><a href="tel:+919521226338">+91 95212 26338</a></p>
+        <p><a href="https://wa.me/919521226338" target="_blank" rel="noopener noreferrer">Chat on WhatsApp</a></p>
       </div>
       <div class="footer-col"><h4>Help</h4><ul>
         <li><a href="track.html">Track your order</a></li>
         <li><a href="contact.html">Contact us</a></li>
+        <li><a href="contact.html">Store policies</a></li>
+        <li><a href="contact.html">Return Policy</a></li>
+        <li><a href="contact.html">Privacy Policy</a></li>
       </ul></div>
       <div class="footer-col"><h4>Shop</h4><ul><li><a href="products.html">Shop all posters</a></li></ul></div>
     </div>
@@ -87,5 +113,6 @@
       }
     });
   </script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -628,12 +628,13 @@ function addToCart(productId, options = {}) {
 
 // Update Item Quantity
 function changeQuantity(productId, delta) {
-  const item = cart.find(item => (item.cartKey || item._id) === productId);
-  if (!item) return;
+  const itemIndex = cart.findIndex(item => (item.cartKey || item._id) === productId);
+  if (itemIndex === -1) return;
 
+  const item = cart[itemIndex];
   item.quantity += delta;
   if (item.quantity <= 0) {
-    cart = cart.filter(p => p._id !== productId);
+    cart = cart.filter(p => (p.cartKey || p._id) !== productId);
   }
 
   saveAndRefreshCart();
