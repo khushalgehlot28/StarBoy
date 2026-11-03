@@ -318,6 +318,8 @@ function initializeStorefrontEnhancements() {
       <p class="pin-status" data-pin-status role="status" aria-live="polite"></p>
       <button class="btn-quick-view" type="button" data-pay-online>Pay online with Razorpay</button>
       <p class="modal-note">Online payment uses listed poster prices. Framed and size-specific pricing is confirmed separately on WhatsApp.</p>
+      <a class="razorpay-link-button" href="https://razorpay.me/@khushalgehlot" target="_blank" rel="noopener noreferrer">Pay via Razorpay Link</a>
+      <p class="modal-note">Manual payment won’t update your order automatically. After paying, continue via WhatsApp to share your order details.</p>
       <button class="btn-add-cart" type="submit">Continue via WhatsApp</button>
       <p class="checkout-result" role="status" aria-live="polite"></p>
     </form>

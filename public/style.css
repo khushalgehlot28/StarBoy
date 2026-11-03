@@ -2778,3 +2778,33 @@ footer {
 .tracking-result > p:last-child {
   color: #68786a;
 }
+
+.razorpay-link-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid #28643a;
+  border-radius: 999px;
+  background: #fff;
+  color: #28643a;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.razorpay-link-button:hover {
+  background: #eff5ed;
+  color: #194b2a;
+}
+
+.razorpay-link-button:focus-visible {
+  outline: 2px solid #397747;
+  outline-offset: 3px;
+}
