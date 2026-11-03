@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track your order | Starboy Crafted</title>
+  <meta name="description" content="Check the latest fulfilment status of your Starboy Crafted poster order.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Track your order | Starboy Crafted">
+  <meta property="og:description" content="Check the latest fulfilment status of your poster order.">
+  <meta property="og:image" content="assets/images/1.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="store-header">
+    <div class="store-header-main">
+      <a href="index.html" class="brand-logo"><img class="brand-mark" src="assets/images/starboy-mark.png" alt="">Starboy Crafted</a>
+      <nav class="store-nav" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="products.html">Shop all</a>
+        <a href="track.html" aria-current="page">Track order</a>
+        <a href="contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+  <main class="catalog-section page-content tracking-page">
+    <div class="page-intro">
+      <p class="eyebrow">Every step, in view</p>
+      <h1>Track your order</h1>
+      <p>Enter the tracking ID you received when you placed your order request.</p>
+    </div>
+    <form id="trackingForm" class="tracking-form store-form">
+      <label for="orderId">Order ID</label>
+      <input id="orderId" name="orderId" type="text" required placeholder="SB-0123456789ABCDEF0123" autocomplete="off">
+      <button class="btn-add-cart" type="submit">Check status</button>
+      <p id="trackingStatus" role="status" aria-live="polite"></p>
+      <section id="trackingResult" class="tracking-result" aria-live="polite" hidden></section>
+    </form>
+  </main>
+  <footer>
+    <div class="footer-container">
+      <div class="footer-col contact-info">
+        <h4>Starboy Crafted</h4>
+        <p>Jodhpur, Rajasthan, 342003</p>
+        <p><a href="tel:+919521226338">+91 95212 26338</a></p>
+      </div>
+      <div class="footer-col"><h4>Help</h4><ul>
+        <li><a href="track.html">Track your order</a></li>
+        <li><a href="contact.html">Contact us</a></li>
+      </ul></div>
+      <div class="footer-col"><h4>Shop</h4><ul><li><a href="products.html">Shop all posters</a></li></ul></div>
+    </div>
+  </footer>
+  <script>
+    const trackingForm = document.getElementById('trackingForm');
+    const trackingStatus = document.getElementById('trackingStatus');
+    const trackingResult = document.getElementById('trackingResult');
+    trackingForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      trackingStatus.textContent = 'Checking your order…';
+      trackingResult.hidden = true;
+      try {
+        const response = await fetch('/api/orders/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: new FormData(trackingForm).get('orderId') })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Order status could not be loaded.');
+        trackingStatus.textContent = '';
+        trackingResult.hidden = false;
+        const stages = ['Printing', 'Packed', 'Shipped'];
+        const activeIndex = stages.indexOf(result.status);
+        trackingResult.innerHTML = `
+          <p class="tracking-order-id">Order ${result.orderId}</p>
+          <ol class="tracking-stages">
+            ${stages.map((stage, index) => `<li class="${index <= activeIndex ? 'is-complete' : ''}"><span></span>${stage}</li>`).join('')}
+          </ol>
+          <p>Last updated: ${new Date(result.updatedAt || result.createdAt).toLocaleDateString()}</p>
+        `;
+      } catch (error) {
+        trackingStatus.textContent = error.message || 'Order status could not be loaded.';
+      }
+    });
+  </script>
+</body>
+</html>

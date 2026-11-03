@@ -133,6 +133,21 @@
           </tbody>
         </table>
       </div>
+
+      <div class="card">
+        <h2>Order tracking</h2>
+        <p>Update an order status to reflect its latest fulfilment stage.</p>
+        <table>
+          <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Save</th></tr></thead>
+          <tbody id="orderTableBody"><tr><td colspan="6">Loading orders…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Customer reviews</h2>
+        <p>Approve reviews before they are shown publicly.</p>
+        <div id="reviewModerationList">Loading reviews…</div>
+      </div>
     </div>
 
   </div>
@@ -171,6 +186,8 @@
         document.getElementById('dashboardSection').classList.remove('hidden');
         document.getElementById('authStatus').classList.remove('hidden');
         loadProductsAdmin();
+        loadOrdersAdmin();
+        loadReviewsAdmin();
       } else {
         document.getElementById('loginSection').classList.remove('hidden');
         document.getElementById('dashboardSection').classList.add('hidden');
@@ -202,6 +219,90 @@
       } catch (err) {
         console.error('Failed to load products');
       }
+    }
+
+    function escapeAdminHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[character]);
+    }
+
+    async function loadOrdersAdmin() {
+      const tbody = document.getElementById('orderTableBody');
+      try {
+        const res = await fetch(`${API_URL}/admin/orders`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('starboy_token')}` }
+        });
+        const orders = await res.json();
+        if (!res.ok) throw new Error(orders.error || 'Failed to load orders.');
+        tbody.innerHTML = orders.length ? orders.map(order => `
+          <tr>
+            <td><strong>${escapeAdminHtml(order.orderId)}</strong><br><small>${escapeAdminHtml(new Date(order.createdAt).toLocaleDateString())}</small></td>
+            <td>${escapeAdminHtml(order.customerName)}<br>${escapeAdminHtml(order.phone)}<br>${escapeAdminHtml(order.address)}, ${escapeAdminHtml(order.pincode)}</td>
+            <td>${order.items.map(item => `${escapeAdminHtml(item.title)} · ${escapeAdminHtml(item.size)} · ${escapeAdminHtml(item.frame)} × ${item.quantity}`).join('<br>')}</td>
+            <td>₹${Number(order.total).toLocaleString('en-IN')}</td>
+            <td><select data-order-status="${escapeAdminHtml(order.orderId)}">
+              ${['Printing', 'Packed', 'Shipped'].map(status => `<option ${status === order.status ? 'selected' : ''}>${status}</option>`).join('')}
+            </select></td>
+            <td><button class="btn" type="button" data-save-order="${escapeAdminHtml(order.orderId)}">Update</button></td>
+          </tr>
+        `).join('') : '<tr><td colspan="6">No order requests yet.</td></tr>';
+      } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="6">${escapeAdminHtml(error.message)}</td></tr>`;
+      }
+    }
+
+    async function saveOrderStatus(orderId) {
+      const status = document.querySelector(`[data-order-status="${CSS.escape(orderId)}"]`).value;
+      const res = await fetch(`${API_URL}/admin/orders/${encodeURIComponent(orderId)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('starboy_token')}`
+        },
+        body: JSON.stringify({ status })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update order.');
+      alert(`Order ${orderId} updated to ${status}.`);
+    }
+
+    async function loadReviewsAdmin() {
+      const list = document.getElementById('reviewModerationList');
+      try {
+        const res = await fetch(`${API_URL}/admin/reviews`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('starboy_token')}` }
+        });
+        const reviews = await res.json();
+        if (!res.ok) throw new Error(reviews.error || 'Failed to load reviews.');
+        list.innerHTML = reviews.length ? reviews.map(review => `
+          <article class="card">
+            <strong>${escapeAdminHtml(review.customerName)} · ${'★'.repeat(review.rating)}</strong>
+            <p>${escapeAdminHtml(review.message)}</p>
+            ${review.photo ? `<img src="${escapeAdminHtml(review.photo)}" alt="Review photo" style="max-width:180px;border-radius:8px;">` : ''}
+            <p>Status: ${review.approved ? 'Published' : 'Pending moderation'}</p>
+            <button class="btn" type="button" data-review-id="${escapeAdminHtml(review._id)}" data-approved="${!review.approved}">
+              ${review.approved ? 'Hide review' : 'Approve review'}
+            </button>
+          </article>
+        `).join('') : '<p>No customer reviews yet.</p>';
+      } catch (error) {
+        list.textContent = error.message;
+      }
+    }
+
+    async function setReviewApproval(reviewId, approved) {
+      const res = await fetch(`${API_URL}/admin/reviews/${encodeURIComponent(reviewId)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('starboy_token')}`
+        },
+        body: JSON.stringify({ approved })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update review.');
+      loadReviewsAdmin();
     }
 
     async function handleAddProduct(e) {
@@ -253,6 +354,19 @@
         } else {
           alert(data.error || 'Failed to delete');
         }
+
+        document.addEventListener('click', async event => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          const orderButton = target.closest('[data-save-order]');
+          const reviewButton = target.closest('[data-review-id]');
+          try {
+            if (orderButton) await saveOrderStatus(orderButton.dataset.saveOrder);
+            if (reviewButton) await setReviewApproval(reviewButton.dataset.reviewId, reviewButton.dataset.approved === 'true');
+          } catch (error) {
+            alert(error.message || 'The update could not be saved.');
+          }
+        });
       } catch (err) {
         alert('Error connecting to server');
       }
